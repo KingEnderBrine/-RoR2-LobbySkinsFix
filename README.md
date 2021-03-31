@@ -7,6 +7,8 @@ Here's an example of an issue, switching to modded commando skin and back leaves
 
 # Changelog
 
+* Removed r2api depencency.
+
 **1.0.0**
 
 * Mod release.

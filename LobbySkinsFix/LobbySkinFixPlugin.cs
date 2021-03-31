@@ -1,25 +1,28 @@
 ﻿using BepInEx;
-using R2API.Utils;
+using MonoMod.Cil;
+using MonoMod.RuntimeDetour.HookGen;
+using System.Reflection;
 using System.Security;
 using System.Security.Permissions;
 
 [module: UnverifiableCode]
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
+[assembly: R2API.Utils.ManualNetworkRegistration]
+[assembly: EnigmaticThunder.Util.ManualNetworkRegistration]
 namespace LobbySkinsFix
 {
-    [NetworkCompatibility(CompatibilityLevel.NoNeedForSync)]
-    [BepInDependency("com.bepis.r2api", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInPlugin("com.KingEnderBrine.LobbySkinFix", "Lobby skin fix", "1.0.0")]
+    [BepInPlugin("com.KingEnderBrine.LobbySkinFix", "Lobby skin fix", "1.1.0")]
     public class LobbySkinFixPlugin : BaseUnityPlugin
     {
+        private static readonly MethodInfo onNetworkUserLoadoutChanged = typeof(RoR2.UI.CharacterSelectController).GetMethod(nameof(RoR2.UI.CharacterSelectController.OnNetworkUserLoadoutChanged), BindingFlags.NonPublic | BindingFlags.Instance);
         private void Awake()
         {
-            IL.RoR2.UI.CharacterSelectController.OnNetworkUserLoadoutChanged += ReverseSkin.RevertSkinIL;
+            HookEndpointManager.Modify(onNetworkUserLoadoutChanged, (ILContext.Manipulator)ReverseSkin.RevertSkinIL);
         }
 
         private void Destroy()
         {
-            IL.RoR2.UI.CharacterSelectController.OnNetworkUserLoadoutChanged -= ReverseSkin.RevertSkinIL;
+            HookEndpointManager.Unmodify(onNetworkUserLoadoutChanged, (ILContext.Manipulator)ReverseSkin.RevertSkinIL);
         }
     }
 }

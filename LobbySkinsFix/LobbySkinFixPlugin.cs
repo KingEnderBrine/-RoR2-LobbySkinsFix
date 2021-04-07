@@ -11,7 +11,7 @@ using System.Security.Permissions;
 [assembly: EnigmaticThunder.Util.ManualNetworkRegistration]
 namespace LobbySkinsFix
 {
-    [BepInPlugin("com.KingEnderBrine.LobbySkinFix", "Lobby skin fix", "1.1.0")]
+    [BepInPlugin("com.KingEnderBrine.LobbySkinFix", "Lobby skin fix", "1.1.1")]
     public class LobbySkinFixPlugin : BaseUnityPlugin
     {
         private static readonly MethodInfo onNetworkUserLoadoutChanged = typeof(RoR2.UI.CharacterSelectController).GetMethod(nameof(RoR2.UI.CharacterSelectController.OnNetworkUserLoadoutChanged), BindingFlags.NonPublic | BindingFlags.Instance);

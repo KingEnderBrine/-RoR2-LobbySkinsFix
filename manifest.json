@@ -1,6 +1,6 @@
 {
     "name": "LobbySkinsFix",
-    "version_number": "1.1.0",
+    "version_number": "1.1.1",
     "website_url": "https://github.com/KingEnderBrine/-RoR2-LobbySkinsFix",
     "description": "Fixes issues with switching to modded skin and back to vanilla in lobby",
     "dependencies": [

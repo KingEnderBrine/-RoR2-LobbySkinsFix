@@ -6,6 +6,10 @@ Here's an example of an issue, switching to modded commando skin and back leaves
 ![](https://cdn.discordapp.com/attachments/706089456855154778/769883155250806784/unknown.png) ![](https://cdn.discordapp.com/attachments/706089456855154778/769883239757381693/unknown.png) ![](https://cdn.discordapp.com/attachments/706089456855154778/769883343101493248/unknown.png)
 
 # Changelog
+**1.2.0**
+
+* Fixes for `Survivors of the Void` update.
+
 **1.1.1**
 
 * Repackaged zip with lowercase `plugins` folder (to avoid a bug in `r2modman` for linux).

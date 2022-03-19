@@ -2,15 +2,15 @@
 using MonoMod.Cil;
 using RoR2;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace LobbySkinsFix
 {
     public class ReverseSkin
     {
-        private static readonly Dictionary<GameObject, ReverseSkin> reverseSkins = new Dictionary<GameObject, ReverseSkin>();
+        private static readonly ConditionalWeakTable<GameObject, ReverseSkin> reverseSkins = new ConditionalWeakTable<GameObject, ReverseSkin>();
 
         private readonly List<CharacterModel.RendererInfo> baseRendererInfos = new List<CharacterModel.RendererInfo>();
         private readonly List<SkinDef.GameObjectActivationTemplate> gameObjectActivationTemplates = new List<SkinDef.GameObjectActivationTemplate>();
@@ -80,19 +80,22 @@ namespace LobbySkinsFix
             }
         }
 
-        //RoR2.UI.CharacterSelectController.OnNetworkUserLoadoutChanged()
         internal static void RevertSkinIL(ILContext il)
         {
             var c = new ILCursor(il);
 
+            var skinDefIndex = -1;
+
             c.GotoNext(
                 MoveType.After,
-                x => x.MatchLdloc(5),
-                x => x.MatchLdloc(6),
-                x => x.MatchCallOrCallvirt(out _));
+                x => x.MatchLdloc(out skinDefIndex),
+                x => x.MatchLdloc(out _),
+                x => x.MatchCallOrCallvirt(out _),
+                x => x.MatchCallOrCallvirt<SkinDef>(nameof(SkinDef.Apply)));
 
+            c.Index--;
             c.Emit(OpCodes.Dup);
-            c.Emit(OpCodes.Ldloc, 5);
+            c.Emit(OpCodes.Ldloc, skinDefIndex);
             c.Emit(OpCodes.Call, typeof(ReverseSkin).GetMethod(nameof(RevertSkin), BindingFlags.NonPublic | BindingFlags.Static));
         }
 
@@ -101,18 +104,9 @@ namespace LobbySkinsFix
             if (reverseSkins.TryGetValue(modelObject, out var reverseSkin))
             {
                 reverseSkin.Apply();
+                reverseSkins.Remove(modelObject);
             }
-            reverseSkins[modelObject] = new ReverseSkin(modelObject, skinDef);
-
-            VerifyDictionary();
-        }
-
-        private static void VerifyDictionary()
-        {
-            foreach (var emptyModelObject in reverseSkins.Keys.Where(el => !el).ToList())
-            {
-                reverseSkins.Remove(emptyModelObject);
-            }
+            reverseSkins.Add(modelObject, new ReverseSkin(modelObject, skinDef));
         }
     }
 }

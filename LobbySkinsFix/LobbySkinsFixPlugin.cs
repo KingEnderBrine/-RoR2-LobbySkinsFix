@@ -14,7 +14,7 @@ namespace LobbySkinsFix
     {
         public const string GUID = "com.KingEnderBrine.LobbySkinsFix";
         public const string Name = "Lobby Skins Fix";
-        public const string Version = "1.2.0";
+        public const string Version = "1.2.1";
 
         private static readonly MethodInfo onNetworkUserLoadoutChanged = typeof(SurvivorMannequinSlotController).GetMethod(nameof(SurvivorMannequinSlotController.ApplyLoadoutToMannequinInstance), BindingFlags.NonPublic | BindingFlags.Instance);
 

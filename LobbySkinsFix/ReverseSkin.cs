@@ -1,6 +1,7 @@
 ﻿using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using RoR2;
+using RoR2.ContentManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -15,7 +16,8 @@ namespace LobbySkinsFix
 
         private void Initialize(GameObject modelObject, SkinDef skinDef)
         {
-            skinDef.Bake();
+            var bakeEnumerator = skinDef.BakeAsync();
+            while (bakeEnumerator.MoveNext());
             var runtimeSkin = skinDef.runtimeSkin;
 
             baseRendererInfos.AddRange(modelObject.GetComponent<CharacterModel>().baseRendererInfos);
@@ -23,13 +25,13 @@ namespace LobbySkinsFix
             {
                 gameObjectActivationTemplates.Add(new SkinDef.GameObjectActivationTemplate
                 {
-                    path = objectActivation.path,
+                    transformPath = objectActivation.transformPath,
                     shouldActivate = !objectActivation.shouldActivate
                 });
             }
             foreach (var meshReplacement in runtimeSkin.meshReplacementTemplates)
             {
-                var rendererTransform = modelObject.transform.Find(meshReplacement.path);
+                var rendererTransform = modelObject.transform.Find(meshReplacement.transformPath);
                 if (!rendererTransform)
                 {
                     continue;
@@ -52,8 +54,8 @@ namespace LobbySkinsFix
 
                 meshReplacementTemplates.Add(new SkinDef.MeshReplacementTemplate
                 {
-                    path = meshReplacement.path,
-                    mesh = mesh
+                    transformPath = meshReplacement.transformPath,
+                    meshReference = new AssetOrDirectReference<Mesh> { directRef = mesh }
                 });
             }
         }
@@ -65,7 +67,7 @@ namespace LobbySkinsFix
 
             foreach (var objectActivation in gameObjectActivationTemplates)
             {
-                var gameActivationTransform = transform.Find(objectActivation.path);
+                var gameActivationTransform = transform.Find(objectActivation.transformPath);
                 if (gameActivationTransform)
                 {
                     gameActivationTransform.gameObject.SetActive(objectActivation.shouldActivate);
@@ -73,7 +75,7 @@ namespace LobbySkinsFix
             }
             foreach (var meshReplacement in meshReplacementTemplates)
             {
-                var rendererTransform = transform.Find(meshReplacement.path);
+                var rendererTransform = transform.Find(meshReplacement.transformPath);
                 if (!rendererTransform)
                 {
                     continue;
@@ -83,10 +85,10 @@ namespace LobbySkinsFix
                 switch (component)
                 {
                     case MeshRenderer _:
-                        component.GetComponent<MeshFilter>().sharedMesh = meshReplacement.mesh;
+                        component.GetComponent<MeshFilter>().sharedMesh = meshReplacement.meshReference.directRef;
                         break;
                     case SkinnedMeshRenderer skinnedMeshRenderer:
-                        skinnedMeshRenderer.sharedMesh = meshReplacement.mesh;
+                        skinnedMeshRenderer.sharedMesh = meshReplacement.meshReference.directRef;
                         break;
                 }
             }
@@ -96,32 +98,44 @@ namespace LobbySkinsFix
         {
             var c = new ILCursor(il);
 
-            var skinDefIndex = -1;
+            var skinIndex = -1;
 
-            c.GotoNext(
-                MoveType.After,
-                x => x.MatchLdloc(out skinDefIndex),
-                x => x.MatchLdloc(out _),
-                x => x.MatchCallOrCallvirt(out _),
-                x => x.MatchCallOrCallvirt<SkinDef>(nameof(SkinDef.Apply)));
+            if (!c.TryGotoNext(
+                MoveType.Before,
+                x => x.MatchLdloc(out skinIndex),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchCallOrCallvirt<ModelSkinController>(nameof(ModelSkinController.ApplySkinAsync))))
+            {
+                LobbySkinsFixPlugin.InstanceLogger.LogError($"Failed to apply {nameof(RevertSkinIL)} hook");
+                return;
+            }
 
-            c.Index--;
             c.Emit(OpCodes.Dup);
-            c.Emit(OpCodes.Ldloc, skinDefIndex);
+            c.Emit(OpCodes.Ldloc, skinIndex);
             c.Emit(OpCodes.Call, typeof(ReverseSkin).GetMethod(nameof(RevertSkin), BindingFlags.NonPublic | BindingFlags.Static));
         }
 
-        private static void RevertSkin(GameObject modelObject, SkinDef skinDef)
+        private static void RevertSkin(ModelSkinController modelSkinController, int skinIndex)
         {
-            var previousReverseSkin = modelObject.GetComponent<ReverseSkin>();
+            if ((uint)skinIndex >= modelSkinController.skins.Length)
+            {
+                skinIndex = 0;
+            }
+
+            if (skinIndex == modelSkinController.currentSkinIndex || modelSkinController.skins.Length == 0)
+            {
+                return;
+            }
+
+            var previousReverseSkin = modelSkinController.GetComponent<ReverseSkin>();
             if (previousReverseSkin)
             {
-                previousReverseSkin.Apply(modelObject);
+                previousReverseSkin.Apply(modelSkinController.gameObject);
                 Destroy(previousReverseSkin);
             }
 
-            var reverseSkin = modelObject.AddComponent<ReverseSkin>();
-            reverseSkin.Initialize(modelObject, skinDef);
+            var reverseSkin = modelSkinController.gameObject.AddComponent<ReverseSkin>();
+            reverseSkin.Initialize(modelSkinController.gameObject, modelSkinController.skins[skinIndex]);
         }
     }
 }

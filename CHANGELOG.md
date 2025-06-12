@@ -1,3 +1,7 @@
+**1.2.2**
+
+* Fixed for `Memory Optimization` update.
+
 **1.2.1**
 
 * Added more error handling.

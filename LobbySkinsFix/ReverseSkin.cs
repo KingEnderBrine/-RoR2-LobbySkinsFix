@@ -2,6 +2,7 @@
 using MonoMod.Cil;
 using RoR2;
 using RoR2.ContentManagement;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -11,24 +12,19 @@ namespace LobbySkinsFix
     public class ReverseSkin : MonoBehaviour
     {
         private readonly List<CharacterModel.RendererInfo> baseRendererInfos = new List<CharacterModel.RendererInfo>();
-        private readonly List<SkinDef.GameObjectActivationTemplate> gameObjectActivationTemplates = new List<SkinDef.GameObjectActivationTemplate>();
         private readonly List<SkinDef.MeshReplacementTemplate> meshReplacementTemplates = new List<SkinDef.MeshReplacementTemplate>();
 
-        private void Initialize(GameObject modelObject, SkinDef skinDef)
+        private IEnumerator Initialize(GameObject modelObject, SkinDef skinDef)
         {
             var bakeEnumerator = skinDef.BakeAsync();
-            while (bakeEnumerator.MoveNext());
+            while (bakeEnumerator.MoveNext())
+            {
+                yield return bakeEnumerator.Current;
+            }
+
             var runtimeSkin = skinDef.runtimeSkin;
 
             baseRendererInfos.AddRange(modelObject.GetComponent<CharacterModel>().baseRendererInfos);
-            foreach (var objectActivation in runtimeSkin.gameObjectActivationTemplates)
-            {
-                gameObjectActivationTemplates.Add(new SkinDef.GameObjectActivationTemplate
-                {
-                    transformPath = objectActivation.transformPath,
-                    shouldActivate = !objectActivation.shouldActivate
-                });
-            }
             foreach (var meshReplacement in runtimeSkin.meshReplacementTemplates)
             {
                 var rendererTransform = modelObject.transform.Find(meshReplacement.transformPath);
@@ -65,14 +61,6 @@ namespace LobbySkinsFix
             var transform = modelObject.transform;
             modelObject.GetComponent<CharacterModel>().baseRendererInfos = baseRendererInfos.ToArray();
 
-            foreach (var objectActivation in gameObjectActivationTemplates)
-            {
-                var gameActivationTransform = transform.Find(objectActivation.transformPath);
-                if (gameActivationTransform)
-                {
-                    gameActivationTransform.gameObject.SetActive(objectActivation.shouldActivate);
-                }
-            }
             foreach (var meshReplacement in meshReplacementTemplates)
             {
                 var rendererTransform = transform.Find(meshReplacement.transformPath);
@@ -111,31 +99,39 @@ namespace LobbySkinsFix
             }
 
             c.Emit(OpCodes.Dup);
+            c.Index += 3;
             c.Emit(OpCodes.Ldloc, skinIndex);
             c.Emit(OpCodes.Call, typeof(ReverseSkin).GetMethod(nameof(RevertSkin), BindingFlags.NonPublic | BindingFlags.Static));
         }
 
-        private static void RevertSkin(ModelSkinController modelSkinController, int skinIndex)
+        private static IEnumerator RevertSkin(ModelSkinController modelSkinController, IEnumerator applySkinAsync, int skinIndex)
         {
             if ((uint)skinIndex >= modelSkinController.skins.Length)
             {
                 skinIndex = 0;
             }
 
-            if (skinIndex == modelSkinController.currentSkinIndex || modelSkinController.skins.Length == 0)
+            if (skinIndex != modelSkinController.currentSkinIndex && modelSkinController.skins.Length != 0)
             {
-                return;
+                var previousReverseSkin = modelSkinController.GetComponent<ReverseSkin>();
+                if (previousReverseSkin)
+                {
+                    previousReverseSkin.Apply(modelSkinController.gameObject);
+                    Destroy(previousReverseSkin);
+                }
+
+                var reverseSkin = modelSkinController.gameObject.AddComponent<ReverseSkin>();
+                var init = reverseSkin.Initialize(modelSkinController.gameObject, modelSkinController.skins[skinIndex]);
+                while (init.MoveNext())
+                {
+                    yield return init.Current;
+                }
             }
 
-            var previousReverseSkin = modelSkinController.GetComponent<ReverseSkin>();
-            if (previousReverseSkin)
+            while (applySkinAsync.MoveNext())
             {
-                previousReverseSkin.Apply(modelSkinController.gameObject);
-                Destroy(previousReverseSkin);
+                yield return applySkinAsync.Current;
             }
-
-            var reverseSkin = modelSkinController.gameObject.AddComponent<ReverseSkin>();
-            reverseSkin.Initialize(modelSkinController.gameObject, modelSkinController.skins[skinIndex]);
         }
     }
 }

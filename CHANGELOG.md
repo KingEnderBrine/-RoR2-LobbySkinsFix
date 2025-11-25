@@ -1,3 +1,7 @@
+**1.2.3**
+
+* Fixes for `Alloyed Collective` update.
+
 **1.2.2**
 
 * Fixed for `Memory Optimization` update.

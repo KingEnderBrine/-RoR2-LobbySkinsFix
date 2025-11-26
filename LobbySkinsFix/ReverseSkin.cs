@@ -13,6 +13,7 @@ namespace LobbySkinsFix
     {
         private readonly List<CharacterModel.RendererInfo> baseRendererInfos = new List<CharacterModel.RendererInfo>();
         private readonly List<SkinDef.MeshReplacementTemplate> meshReplacementTemplates = new List<SkinDef.MeshReplacementTemplate>();
+        private readonly List<SkinDef.GameObjectActivationTemplate> gameObjectActivationTemplates = new List<SkinDef.GameObjectActivationTemplate>();
 
         private IEnumerator Initialize(GameObject modelObject, SkinDef skinDef)
         {
@@ -25,6 +26,14 @@ namespace LobbySkinsFix
             var runtimeSkin = skinDef.runtimeSkin;
 
             baseRendererInfos.AddRange(modelObject.GetComponent<CharacterModel>().baseRendererInfos);
+            foreach (var objectActivation in runtimeSkin.gameObjectActivationTemplates)
+            {
+                gameObjectActivationTemplates.Add(new SkinDef.GameObjectActivationTemplate
+                {
+                    transformPath = objectActivation.transformPath,
+                    shouldActivate = !objectActivation.shouldActivate
+                });
+            }
             foreach (var meshReplacement in runtimeSkin.meshReplacementTemplates)
             {
                 var rendererTransform = modelObject.transform.Find(meshReplacement.transformPath);
@@ -59,8 +68,19 @@ namespace LobbySkinsFix
         private void Apply(GameObject modelObject)
         {
             var transform = modelObject.transform;
-            modelObject.GetComponent<CharacterModel>().baseRendererInfos = baseRendererInfos.ToArray();
+            var model = modelObject.GetComponent<CharacterModel>();
+            model.baseRendererInfos = baseRendererInfos.ToArray();
 
+            foreach (var objectActivation in gameObjectActivationTemplates)
+            {
+                var gameActivationTransform = transform.Find(objectActivation.transformPath);
+                if (gameActivationTransform)
+                {
+                    gameActivationTransform.gameObject.SetActive(objectActivation.shouldActivate);
+                }
+            }
+            model.gameObjectActivationTransforms.Clear();
+            
             foreach (var meshReplacement in meshReplacementTemplates)
             {
                 var rendererTransform = transform.Find(meshReplacement.transformPath);

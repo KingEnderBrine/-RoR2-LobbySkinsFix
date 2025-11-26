@@ -1,3 +1,7 @@
+**1.2.4**
+
+* Fixed an issue where GameObjectActivations weren't restored correctly.
+
 **1.2.3**
 
 * Fixes for `Alloyed Collective` update.
